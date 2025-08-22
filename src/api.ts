@@ -1,21 +1,33 @@
 import { Notification, CreateEventParams } from './types';
 
-const BASE_URL = (import.meta as any).env?.DEV 
-  ? '/api' 
-  : 'https://api-node-insyd.onrender.com/api';
+// Determine the base URL based on environment
+const BASE_URL = (() => {
+  // Use the proxy for both development and production (Vercel)
+  // This allows Vercel to handle CORS and routing
+  return '/api';
+})();
 
 export async function getNotifications(userId: string, onlyUnread = false): Promise<Notification[]> {
   try {
     const url = `${BASE_URL}/notifications/${userId}?onlyUnread=${onlyUnread}`;
+    console.log('Environment:', import.meta.env.MODE);
+    console.log('Base URL:', BASE_URL);
     console.log('Fetching notifications from:', url);
+    console.log('User ID:', userId);
+    console.log('Only Unread:', onlyUnread);
     
     const res = await fetch(url, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
-      }
+      },
+      // Add timeout and better error handling for production
+      signal: AbortSignal.timeout(10000) // 10 second timeout
     });
+    
+    console.log('Response status:', res.status);
+    console.log('Response headers:', Object.fromEntries(res.headers.entries()));
     
     if (!res.ok) {
       const errorText = await res.text();
@@ -28,6 +40,14 @@ export async function getNotifications(userId: string, onlyUnread = false): Prom
     return data;
   } catch (error) {
     console.error('Network Error:', error);
+    console.error('Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timeout - please check your internet connection');
+    }
     throw error;
   }
 }
@@ -42,7 +62,8 @@ export async function createEvent(params: CreateEventParams): Promise<Notificati
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify(params)
+      body: JSON.stringify(params),
+      signal: AbortSignal.timeout(10000) // 10 second timeout
     });
     
     if (!res.ok) {
@@ -56,6 +77,9 @@ export async function createEvent(params: CreateEventParams): Promise<Notificati
     return data;
   } catch (error) {
     console.error('Network Error:', error);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timeout - please check your internet connection');
+    }
     throw error;
   }
 }
@@ -69,7 +93,8 @@ export async function markAsRead(id: string): Promise<Notification> {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
-      }
+      },
+      signal: AbortSignal.timeout(10000) // 10 second timeout
     });
     
     if (!res.ok) {
@@ -83,6 +108,9 @@ export async function markAsRead(id: string): Promise<Notification> {
     return data;
   } catch (error) {
     console.error('Network Error:', error);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timeout - please check your internet connection');
+    }
     throw error;
   }
 }
